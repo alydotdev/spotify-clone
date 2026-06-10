@@ -13,14 +13,18 @@ export const useAuthStore = create<AuthStore>((set) => ({
      isLoading: false,
      error: null,
      checkAdminStatus: async () => {
-        set({isLoading: true, error: null});
+        set({ isLoading: true, error: null });
         try {
-            const response = await axiosInstance.get('/admin/check');
-            set({isAdmin: response.data.isAdmin});
-        } catch (error: any) {
-            set({isAdmin: false , error: error.response.data.message});
-        }finally{
-            set({isLoading: false});
+            const response = await axiosInstance.get("/admin/check");
+            set({ isAdmin: response.data.isAdmin });
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } }; message?: string };
+            set({
+                isAdmin: false,
+                error: err.response?.data?.message ?? err.message ?? "Failed to verify admin access",
+            });
+        } finally {
+            set({ isLoading: false });
         }
      },
      reset: () => set({isAdmin: false, isLoading: false, error: null}),

@@ -1,0 +1,29 @@
+# Dependencies — installed fresh inside the image
+node_modules
+
+# Secrets — pass via `docker run -e` or docker-compose `env_file`
+.env
+.env.*
+
+# Git and editor noise
+.git
+.gitignore
+.vscode
+
+# Upload temp files from local dev (not needed in the image)
+tmp
+
+# Logs and test artifacts
+*.log
+npm-debug.log*
+coverage
+.nyc_output
+
+# Docker files themselves (not needed inside the image)
+Dockerfile
+DockerFile
+.dockerignore
+
+# Docs
+README.md
+*.md

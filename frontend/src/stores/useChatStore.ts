@@ -25,7 +25,7 @@ interface ChatStore {
 	emitActivity: (activity: string) => void;
 }
 
-const baseURL = import.meta.env.MODE === "development" ? "http://localhost:5000" : "/";
+const baseURL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
 
 const socket = io(baseURL, {
 	autoConnect: false,
@@ -67,10 +67,16 @@ const attachSocketListeners = (
 	listenersReady = true;
 
 	socket.on("connect", () => {
+		set({ isConnected: true });
+
 		const userId = get().currentUserId;
 		if (userId) {
 			socket.emit("user_connected", userId);
 		}
+	});
+
+	socket.on("disconnect", () => {
+		set({ isConnected: false });
 	});
 
 	socket.on("users_online", (users: string[]) => {
@@ -139,15 +145,20 @@ export const useChatStore = create<ChatStore>((set, get) => {
 		messages: [],
 		selectedUser: null,
 
-		setSelectedUser: (user) => set({ selectedUser: user }),
+		setSelectedUser: (user) =>
+			set((state) => ({
+				selectedUser: user,
+				messages: state.selectedUser?.clerkId === user?.clerkId ? state.messages : [],
+			})),
 
 		fetchUsers: async () => {
 			set({ isLoading: true, error: null });
 			try {
 				const response = await axiosInstance.get("/users");
 				set({ users: response.data });
-			} catch (error: any) {
-				set({ error: error.response?.data?.message || error.message });
+			} catch (error: unknown) {
+				const err = error as { response?: { data?: { message?: string } }; message?: string };
+				set({ error: err.response?.data?.message ?? err.message ?? "Failed to load users" });
 			} finally {
 				set({ isLoading: false });
 			}
@@ -155,13 +166,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
 		initSocket: (userId) => {
 			set({ currentUserId: userId });
+			socket.auth = { userId };
 
-			if (!get().isConnected) {
-				socket.auth = { userId };
-				socket.connect();
-				set({ isConnected: true });
-			} else {
+			if (socket.connected) {
 				socket.emit("user_connected", userId);
+			} else {
+				socket.connect();
 			}
 		},
 
@@ -174,6 +184,10 @@ export const useChatStore = create<ChatStore>((set, get) => {
 				currentUserId: null,
 				onlineUsers: new Set(),
 				userActivities: new Map(),
+				users: [],
+				messages: [],
+				selectedUser: null,
+				error: null,
 			});
 		},
 
@@ -217,8 +231,9 @@ export const useChatStore = create<ChatStore>((set, get) => {
 			try {
 				const response = await axiosInstance.get(`/users/messages/${userId}`);
 				set({ messages: response.data });
-			} catch (error: any) {
-				set({ error: error.response?.data?.message || error.message });
+			} catch (error: unknown) {
+				const err = error as { response?: { data?: { message?: string } }; message?: string };
+				set({ error: err.response?.data?.message ?? err.message ?? "Failed to load messages" });
 			} finally {
 				set({ isMessagesLoading: false });
 			}

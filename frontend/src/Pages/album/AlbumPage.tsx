@@ -1,3 +1,4 @@
+import Topbar from "@/components/Topbar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMusicStore } from "@/stores/useMusicStore";
@@ -41,21 +42,26 @@ const AlbumPage = () => {
 
 	if (showInitialLoading) {
 		return (
-			<div className='h-full rounded-md bg-zinc-900 flex items-center justify-center'>
-				<Loader2 className='size-8 text-green-500 animate-spin' />
-			</div>
+			<main className='h-full rounded-md overflow-hidden bg-zinc-900'>
+				<Topbar showBack />
+				<div className='h-[calc(100dvh-168px)] sm:h-[calc(100dvh-192px)] flex items-center justify-center'>
+					<Loader2 className='size-8 text-green-500 animate-spin' />
+				</div>
+			</main>
 		);
 	}
 
 	return (
-		<div className='h-full relative'>
+		<main className='h-full relative rounded-md overflow-hidden'>
+			<Topbar showBack />
+
 			{isCurrentAlbumLoading && (
-				<div className='absolute inset-0 z-20 bg-black/50 backdrop-blur-[1px] flex items-center justify-center pointer-events-none rounded-md'>
+				<div className='absolute inset-0 top-14 sm:top-16 z-20 bg-black/50 backdrop-blur-[1px] flex items-center justify-center pointer-events-none'>
 					<Loader2 className='size-8 text-green-500 animate-spin' />
 				</div>
 			)}
 
-			<ScrollArea className='h-full rounded-md'>
+			<ScrollArea className='h-[calc(100dvh-168px)] sm:h-[calc(100dvh-192px)]'>
 				<div className='relative min-h-full'>
 					<div
 						className='absolute inset-0 bg-gradient-to-b from-[#5038a0]/80 via-zinc-900/80 to-zinc-900 pointer-events-none'
@@ -157,7 +163,7 @@ const AlbumPage = () => {
 					</div>
 				</div>
 			</ScrollArea>
-		</div>
+		</main>
 	);
 };
 export default AlbumPage;

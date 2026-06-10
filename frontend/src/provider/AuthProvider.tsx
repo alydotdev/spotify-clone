@@ -13,7 +13,7 @@ const updateApiToken = (token: string | null) => {
 const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 	const { getToken, userId } = useAuth();
 	const [loading, setLoading] = useState(true);
-	const { checkAdminStatus } = useAuthStore();
+	const { checkAdminStatus, reset } = useAuthStore();
 	const { initSocket, disconnectSocket } = useChatStore();
 
 	useEffect(() => {
@@ -21,13 +21,18 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 			try {
 				const token = await getToken();
 				updateApiToken(token);
-				if (token) {
+
+				if (token && userId) {
 					await checkAdminStatus();
-					// init socket
-					if (userId) initSocket(userId);
+					initSocket(userId);
+				} else {
+					reset();
+					disconnectSocket();
 				}
-			} catch (error: any) {
+			} catch (error) {
 				updateApiToken(null);
+				reset();
+				disconnectSocket();
 				console.log("Error in auth provider", error);
 			} finally {
 				setLoading(false);
@@ -36,9 +41,8 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 		initAuth();
 
-		// clean up
 		return () => disconnectSocket();
-	}, [getToken, userId, checkAdminStatus, initSocket, disconnectSocket]);
+	}, [getToken, userId, checkAdminStatus, initSocket, disconnectSocket, reset]);
 
 	if (loading)
 		return (
