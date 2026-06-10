@@ -25,7 +25,7 @@ interface ChatStore {
 	emitActivity: (activity: string) => void;
 }
 
-const baseURL = import.meta.env.SOCKET_URL;
+const baseURL = import.meta.env.VITE_SOCKET_URL;
 
 const socket = io(baseURL, {
 	autoConnect: false,
