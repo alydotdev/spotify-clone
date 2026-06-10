@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { axiosInstance } from "@/lib/axios";
+import { isAxiosError } from "axios";
 import { formatDuration, getAudioMetadata, guessTitleFromFilename } from "@/lib/audio";
 import { useMusicStore } from "@/stores/useMusicStore";
 import { useAuth } from "@clerk/clerk-react";
@@ -129,14 +130,26 @@ const AddSongDialog = () => {
 			setFiles({ audio: null, image: null });
 			setSongDialogOpen(false);
 			toast.success("Song added successfully");
-		} catch (error: any) {
+		} catch (error: unknown) {
 			console.error("Error adding song:", error);
-			if (error.response?.status === 401) {
-				toast.error("Authentication failed. Please sign in again.");
-			} else if (error.response?.status === 403) {
-				toast.error("Admin access required. You don't have permission to add songs.");
+			if (isAxiosError(error)) {
+				if (error.response?.status === 401) {
+					toast.error("Authentication failed. Please sign in again.");
+				} else if (error.response?.status === 403) {
+					toast.error("Admin access required. You don't have permission to add songs.");
+				} else {
+					const message =
+						typeof error.response?.data === "object" &&
+						error.response?.data &&
+						"message" in error.response.data
+							? String(error.response.data.message)
+							: error.message;
+					toast.error("Failed to add song: " + message);
+				}
+			} else if (error instanceof Error) {
+				toast.error("Failed to add song: " + error.message);
 			} else {
-				toast.error("Failed to add song: " + (error.response?.data?.message || error.message));
+				toast.error("Failed to add song");
 			}
 		} finally {
 			setIsLoading(false);
