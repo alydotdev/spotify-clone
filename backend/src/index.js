@@ -18,10 +18,25 @@ const __dirname= path.resolve();
 const app= express();
 const httpServer = createServer(app);
 initializeSocket(httpServer);
-app.use(cors({
-    origin: "http://localhost:3000",
-    credentials: true,
-}))
+const allowedOrigins = [
+    "http://localhost:3000",
+    "https://spotify-clone-bice-xi.vercel.app",
+  ];
+  
+  app.use(
+    cors({
+      origin: function (origin, callback) {
+        if (!origin) return callback(null, true); // mobile apps / postman
+  
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+  
+        return callback(new Error("Not allowed by CORS"));
+      },
+      credentials: true,
+    })
+  );
 app.use(express.json())
 app.use(clerkMiddleware())
 app.use(fileUpload({

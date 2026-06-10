@@ -25,7 +25,7 @@ interface ChatStore {
 	emitActivity: (activity: string) => void;
 }
 
-const baseURL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
+const baseURL = import.meta.env.SOCKET_URL;
 
 const socket = io(baseURL, {
 	autoConnect: false,
