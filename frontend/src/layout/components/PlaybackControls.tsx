@@ -104,7 +104,7 @@ export const PlaybackControls = () => {
 	};
 
 	return (
-		<footer className='bg-zinc-900 border-t border-zinc-800 shrink-0'>
+		<footer className='fixed bottom-0 left-0 right-0 z-50 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 shrink-0 pb-[env(safe-area-inset-bottom)] md:static md:z-auto md:bg-zinc-900 md:backdrop-blur-none'>
 			<div className='flex justify-between items-center gap-2 px-2 sm:px-4 pt-2 sm:pt-0 sm:h-20 md:h-24 max-w-[1800px] mx-auto'>
 				<div className='flex items-center gap-2 sm:gap-4 min-w-0 flex-1 sm:flex-none sm:min-w-[180px] sm:w-[30%]'>
 					{currentSong && (

@@ -18,7 +18,7 @@ const Topbar = ({ showBack = false }: TopbarProps) => {
 	const toggleMobileSidebar = useLayoutStore((state) => state.toggleMobileSidebar);
 
 	return (
-		<div className='flex items-center justify-between gap-2 p-3 sm:p-4 sticky top-0 z-30 bg-zinc-900/75 backdrop-blur-md border-b border-zinc-800/50'>
+		<div className='flex items-center justify-between gap-2 p-3 sm:p-4 shrink-0 z-30 bg-zinc-900/95 backdrop-blur-md border-b border-zinc-800/50'>
 			<div className='flex gap-1 sm:gap-2 items-center min-w-0'>
 				<Button
 					variant='ghost'

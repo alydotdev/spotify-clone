@@ -41,8 +41,8 @@ const LeftSidebar = ({ showLabels = false }: LeftSidebarProps) => {
 	const showText = showLabels;
 
 	return (
-		<div className='h-full flex flex-col gap-2'>
-			<div className='rounded-lg bg-zinc-900 p-4'>
+		<div className='h-full flex flex-col gap-2 min-h-0'>
+			<div className='rounded-lg bg-zinc-900 p-3 sm:p-4 shrink-0'>
 				<div className='space-y-2'>
 					<NavLink to='/' className={navLinkClass} onClick={handleNavigate}>
 						<HomeIcon className='mr-2 size-5 shrink-0' />
@@ -58,15 +58,15 @@ const LeftSidebar = ({ showLabels = false }: LeftSidebarProps) => {
 				</div>
 			</div>
 
-			<div className='flex-1 rounded-lg bg-zinc-900 p-4 min-h-0'>
-				<div className='flex items-center justify-between mb-4'>
+			<div className='flex-1 rounded-lg bg-zinc-900 p-3 sm:p-4 min-h-0 flex flex-col overflow-hidden'>
+				<div className='flex items-center justify-between mb-3 sm:mb-4 shrink-0'>
 					<div className='flex items-center text-white px-2'>
 						<Library className='size-5 mr-2 shrink-0' />
 						<span className={cn(!showText && "hidden md:inline")}>Playlists</span>
 					</div>
 				</div>
 
-				<ScrollArea className='h-[calc(100vh-300px)] md:h-[calc(100vh-300px)]'>
+				<ScrollArea className='flex-1 min-h-0'>
 					<div className='space-y-2'>
 						{isAlbumsLoading && albums.length === 0 ? (
 							<PlaylistSkeleton />

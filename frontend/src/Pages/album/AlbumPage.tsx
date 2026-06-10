@@ -1,6 +1,5 @@
-import Topbar from "@/components/Topbar";
+import PageShell from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMusicStore } from "@/stores/useMusicStore";
 import { usePlayerStore } from "@/stores/usePlayerStore";
 import { Clock, Loader2, Pause, Play } from "lucide-react";
@@ -42,42 +41,39 @@ const AlbumPage = () => {
 
 	if (showInitialLoading) {
 		return (
-			<main className='h-full rounded-md overflow-hidden bg-zinc-900'>
-				<Topbar showBack />
-				<div className='h-[calc(100dvh-168px)] sm:h-[calc(100dvh-192px)] flex items-center justify-center'>
+			<PageShell showBack className='bg-zinc-900'>
+				<div className='h-full flex items-center justify-center'>
 					<Loader2 className='size-8 text-green-500 animate-spin' />
 				</div>
-			</main>
+			</PageShell>
 		);
 	}
 
 	return (
-		<main className='h-full relative rounded-md overflow-hidden'>
-			<Topbar showBack />
-
+		<PageShell showBack className='bg-zinc-900 relative'>
 			{isCurrentAlbumLoading && (
-				<div className='absolute inset-0 top-14 sm:top-16 z-20 bg-black/50 backdrop-blur-[1px] flex items-center justify-center pointer-events-none'>
+				<div className='absolute inset-0 z-20 bg-black/50 backdrop-blur-[1px] flex items-center justify-center pointer-events-none'>
 					<Loader2 className='size-8 text-green-500 animate-spin' />
 				</div>
 			)}
 
-			<ScrollArea className='h-[calc(100dvh-168px)] sm:h-[calc(100dvh-192px)]'>
+			<div className='h-full overflow-y-auto mobile-scroll'>
 				<div className='relative min-h-full'>
 					<div
 						className='absolute inset-0 bg-gradient-to-b from-[#5038a0]/80 via-zinc-900/80 to-zinc-900 pointer-events-none'
 						aria-hidden='true'
 					/>
 
-					<div className='relative z-10'>
-						<div className='flex flex-col sm:flex-row p-4 sm:p-6 gap-4 sm:gap-6 pb-6 sm:pb-8'>
+					<div className='relative z-10 pb-6'>
+						<div className='flex flex-col sm:flex-row p-4 sm:p-6 gap-4 sm:gap-6 pb-4 sm:pb-6'>
 							<img
 								src={currentAlbum?.imageUrl}
 								alt={currentAlbum?.title}
-								className='w-full max-w-[200px] sm:w-[200px] md:w-[240px] aspect-square shadow-xl rounded mx-auto sm:mx-0'
+								className='w-full max-w-[180px] sm:w-[200px] md:w-[240px] aspect-square shadow-xl rounded mx-auto sm:mx-0'
 							/>
-							<div className='flex flex-col justify-end text-center sm:text-left'>
-								<p className='text-sm font-medium'>Album</p>
-								<h1 className='text-3xl sm:text-5xl md:text-7xl font-bold my-2 sm:my-4'>
+							<div className='flex flex-col justify-end text-center sm:text-left min-w-0'>
+								<p className='text-sm font-medium text-zinc-300'>Album</p>
+								<h1 className='text-2xl sm:text-5xl md:text-7xl font-bold my-2 sm:my-4 break-words'>
 									{currentAlbum?.title}
 								</h1>
 								<div className='flex flex-wrap items-center justify-center sm:justify-start gap-2 text-sm text-zinc-100'>
@@ -103,9 +99,7 @@ const AlbumPage = () => {
 						</div>
 
 						<div className='bg-black/20 backdrop-blur-sm'>
-							<div
-								className='hidden sm:grid grid-cols-[16px_4fr_2fr_1fr] gap-4 px-6 md:px-10 py-2 text-sm text-zinc-400 border-b border-white/5'
-							>
+							<div className='hidden sm:grid grid-cols-[16px_4fr_2fr_1fr] gap-4 px-6 md:px-10 py-2 text-sm text-zinc-400 border-b border-white/5'>
 								<div>#</div>
 								<div>Title</div>
 								<div>Released Date</div>
@@ -114,15 +108,15 @@ const AlbumPage = () => {
 								</div>
 							</div>
 
-							<div className='px-3 sm:px-6'>
-								<div className='space-y-1 sm:space-y-2 py-4'>
+							<div className='px-2 sm:px-6'>
+								<div className='space-y-0.5 sm:space-y-1 py-2 sm:py-4'>
 									{currentAlbum?.songs.map((song, index) => {
 										const isCurrentSong = currentSong?._id === song._id;
 										return (
 											<div
 												key={song._id}
 												onClick={() => handlePlaySong(index)}
-												className='grid grid-cols-[24px_1fr_auto] sm:grid-cols-[16px_4fr_2fr_1fr] gap-3 sm:gap-4 px-3 sm:px-4 py-2 text-sm text-zinc-400 hover:bg-white/5 rounded-md group cursor-pointer'
+												className='grid grid-cols-[28px_1fr_auto] sm:grid-cols-[16px_4fr_2fr_1fr] gap-2 sm:gap-4 px-2 sm:px-4 py-3 sm:py-2 text-sm text-zinc-400 active:bg-white/10 hover:bg-white/5 rounded-md group cursor-pointer touch-manipulation'
 											>
 												<div className='flex items-center justify-center'>
 													{isCurrentSong && isPlaying ? (
@@ -144,14 +138,14 @@ const AlbumPage = () => {
 
 													<div className='min-w-0'>
 														<div className='font-medium text-white truncate'>{song.title}</div>
-														<div className='truncate'>{song.artist}</div>
+														<div className='truncate text-xs sm:text-sm'>{song.artist}</div>
 													</div>
 												</div>
 
 												<div className='hidden sm:flex items-center'>
 													{song.createdAt.split("T")[0]}
 												</div>
-												<div className='flex items-center justify-end sm:justify-start'>
+												<div className='flex items-center justify-end sm:justify-start text-xs sm:text-sm tabular-nums'>
 													{formatDuration(song.duration)}
 												</div>
 											</div>
@@ -162,8 +156,8 @@ const AlbumPage = () => {
 						</div>
 					</div>
 				</div>
-			</ScrollArea>
-		</main>
+			</div>
+		</PageShell>
 	);
 };
 export default AlbumPage;

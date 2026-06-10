@@ -186,3 +186,23 @@
     @apply bg-background text-foreground;
   }
 }
+
+:root {
+  --player-height: 5.75rem;
+  --topbar-height: 3.25rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --player-height: 6.25rem;
+    --topbar-height: 3.5rem;
+  }
+}
+
+@layer utilities {
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+}
