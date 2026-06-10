@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMusicStore } from "@/stores/useMusicStore";
 import { usePlayerStore } from "@/stores/usePlayerStore";
-import { Clock, Pause, Play } from "lucide-react";
+import { Clock, Loader2, Pause, Play } from "lucide-react";
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 
@@ -14,14 +14,12 @@ export const formatDuration = (seconds: number) => {
 
 const AlbumPage = () => {
 	const { albumId } = useParams();
-	const { fetchAlbumById, currentAlbum, isLoading } = useMusicStore();
+	const { fetchAlbumById, currentAlbum, isCurrentAlbumLoading } = useMusicStore();
 	const { currentSong, isPlaying, playAlbum, togglePlay } = usePlayerStore();
 
 	useEffect(() => {
 		if (albumId) fetchAlbumById(albumId);
 	}, [fetchAlbumById, albumId]);
-
-	if (isLoading) return null;
 
 	const handlePlayAlbum = () => {
 		if (!currentAlbum) return;
@@ -29,7 +27,6 @@ const AlbumPage = () => {
 		const isCurrentAlbumPlaying = currentAlbum?.songs.some((song) => song._id === currentSong?._id);
 		if (isCurrentAlbumPlaying) togglePlay();
 		else {
-			// start playing the album from the beginning
 			playAlbum(currentAlbum?.songs, 0);
 		}
 	};
@@ -40,30 +37,44 @@ const AlbumPage = () => {
 		playAlbum(currentAlbum?.songs, index);
 	};
 
+	const showInitialLoading = isCurrentAlbumLoading && !currentAlbum;
+
+	if (showInitialLoading) {
+		return (
+			<div className='h-full rounded-md bg-zinc-900 flex items-center justify-center'>
+				<Loader2 className='size-8 text-green-500 animate-spin' />
+			</div>
+		);
+	}
+
 	return (
-		<div className='h-full'>
+		<div className='h-full relative'>
+			{isCurrentAlbumLoading && (
+				<div className='absolute inset-0 z-20 bg-black/50 backdrop-blur-[1px] flex items-center justify-center pointer-events-none rounded-md'>
+					<Loader2 className='size-8 text-green-500 animate-spin' />
+				</div>
+			)}
+
 			<ScrollArea className='h-full rounded-md'>
-				{/* Main Content */}
 				<div className='relative min-h-full'>
-					{/* bg gradient */}
 					<div
-						className='absolute inset-0 bg-gradient-to-b from-[#5038a0]/80 via-zinc-900/80
-					 to-zinc-900 pointer-events-none'
+						className='absolute inset-0 bg-gradient-to-b from-[#5038a0]/80 via-zinc-900/80 to-zinc-900 pointer-events-none'
 						aria-hidden='true'
 					/>
 
-					{/* Content */}
 					<div className='relative z-10'>
-						<div className='flex p-6 gap-6 pb-8'>
+						<div className='flex flex-col sm:flex-row p-4 sm:p-6 gap-4 sm:gap-6 pb-6 sm:pb-8'>
 							<img
 								src={currentAlbum?.imageUrl}
 								alt={currentAlbum?.title}
-								className='w-[240px] h-[240px] shadow-xl rounded'
+								className='w-full max-w-[200px] sm:w-[200px] md:w-[240px] aspect-square shadow-xl rounded mx-auto sm:mx-0'
 							/>
-							<div className='flex flex-col justify-end'>
+							<div className='flex flex-col justify-end text-center sm:text-left'>
 								<p className='text-sm font-medium'>Album</p>
-								<h1 className='text-7xl font-bold my-4'>{currentAlbum?.title}</h1>
-								<div className='flex items-center gap-2 text-sm text-zinc-100'>
+								<h1 className='text-3xl sm:text-5xl md:text-7xl font-bold my-2 sm:my-4'>
+									{currentAlbum?.title}
+								</h1>
+								<div className='flex flex-wrap items-center justify-center sm:justify-start gap-2 text-sm text-zinc-100'>
 									<span className='font-medium text-white'>{currentAlbum?.artist}</span>
 									<span>• {currentAlbum?.songs.length} songs</span>
 									<span>• {currentAlbum?.releaseYear}</span>
@@ -71,28 +82,23 @@ const AlbumPage = () => {
 							</div>
 						</div>
 
-						{/* play button */}
-						<div className='px-6 pb-4 flex items-center gap-6'>
+						<div className='px-4 sm:px-6 pb-4 flex items-center gap-6'>
 							<Button
 								onClick={handlePlayAlbum}
 								size='icon'
-								className='w-14 h-14 rounded-full bg-green-500 hover:bg-green-400 
-                hover:scale-105 transition-all'
+								className='w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-green-500 hover:bg-green-400 hover:scale-105 transition-all'
 							>
 								{isPlaying && currentAlbum?.songs.some((song) => song._id === currentSong?._id) ? (
-									<Pause className='h-7 w-7 text-black' />
+									<Pause className='h-6 w-6 sm:h-7 sm:w-7 text-black' />
 								) : (
-									<Play className='h-7 w-7 text-black' />
+									<Play className='h-6 w-6 sm:h-7 sm:w-7 text-black' />
 								)}
 							</Button>
 						</div>
 
-						{/* Table Section */}
 						<div className='bg-black/20 backdrop-blur-sm'>
-							{/* table header */}
 							<div
-								className='grid grid-cols-[16px_4fr_2fr_1fr] gap-4 px-10 py-2 text-sm 
-            text-zinc-400 border-b border-white/5'
+								className='hidden sm:grid grid-cols-[16px_4fr_2fr_1fr] gap-4 px-6 md:px-10 py-2 text-sm text-zinc-400 border-b border-white/5'
 							>
 								<div>#</div>
 								<div>Title</div>
@@ -102,19 +108,15 @@ const AlbumPage = () => {
 								</div>
 							</div>
 
-							{/* songs list */}
-
-							<div className='px-6'>
-								<div className='space-y-2 py-4'>
+							<div className='px-3 sm:px-6'>
+								<div className='space-y-1 sm:space-y-2 py-4'>
 									{currentAlbum?.songs.map((song, index) => {
 										const isCurrentSong = currentSong?._id === song._id;
 										return (
 											<div
 												key={song._id}
 												onClick={() => handlePlaySong(index)}
-												className={`grid grid-cols-[16px_4fr_2fr_1fr] gap-4 px-4 py-2 text-sm 
-                     									 text-zinc-400 hover:bg-white/5 rounded-md group cursor-pointer
-                   									   `}
+												className='grid grid-cols-[24px_1fr_auto] sm:grid-cols-[16px_4fr_2fr_1fr] gap-3 sm:gap-4 px-3 sm:px-4 py-2 text-sm text-zinc-400 hover:bg-white/5 rounded-md group cursor-pointer'
 											>
 												<div className='flex items-center justify-center'>
 													{isCurrentSong && isPlaying ? (
@@ -127,16 +129,25 @@ const AlbumPage = () => {
 													)}
 												</div>
 
-												<div className='flex items-center gap-3'>
-													<img src={song.imageUrl} alt={song.title} className='size-10' />
+												<div className='flex items-center gap-3 min-w-0'>
+													<img
+														src={song.imageUrl}
+														alt={song.title}
+														className='size-10 rounded shrink-0'
+													/>
 
-													<div>
-														<div className={`font-medium text-white`}>{song.title}</div>
-														<div>{song.artist}</div>
+													<div className='min-w-0'>
+														<div className='font-medium text-white truncate'>{song.title}</div>
+														<div className='truncate'>{song.artist}</div>
 													</div>
 												</div>
-												<div className='flex items-center'>{song.createdAt.split("T")[0]}</div>
-												<div className='flex items-center'>{formatDuration(song.duration)}</div>
+
+												<div className='hidden sm:flex items-center'>
+													{song.createdAt.split("T")[0]}
+												</div>
+												<div className='flex items-center justify-end sm:justify-start'>
+													{formatDuration(song.duration)}
+												</div>
 											</div>
 										);
 									})}

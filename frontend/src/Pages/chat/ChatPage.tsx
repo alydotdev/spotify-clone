@@ -1,11 +1,13 @@
 import Topbar from "@/components/Topbar";
+import { cn } from "@/lib/utils";
 import { useChatStore } from "@/stores/useChatStore";
 import { useUser } from "@clerk/clerk-react";
-import { useEffect } from "react";
+import { MessageCircle } from "lucide-react";
+import { useEffect, useRef } from "react";
 import UsersList from "./Components/UsersList";
 import ChatHeader from "./Components/ChatHeader";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import MessageInput from "./Components/MessageInput";
 
 const formatTime = (date: string) => {
@@ -18,7 +20,8 @@ const formatTime = (date: string) => {
 
 const ChatPage = () => {
 	const { user } = useUser();
-	const { messages, selectedUser, fetchUsers, fetchMessages } = useChatStore();
+	const { messages, selectedUser, fetchUsers, fetchMessages, isMessagesLoading } = useChatStore();
+	const messagesEndRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		if (user) fetchUsers();
@@ -28,53 +31,90 @@ const ChatPage = () => {
 		if (selectedUser) fetchMessages(selectedUser.clerkId);
 	}, [selectedUser, fetchMessages]);
 
-	console.log({ messages });
+	useEffect(() => {
+		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+	}, [messages, selectedUser]);
 
 	return (
-		<main className='h-full rounded-lg bg-gradient-to-b from-zinc-800 to-zinc-900 overflow-hidden'>
+		<main className='h-full rounded-lg bg-gradient-to-b from-zinc-900 via-zinc-900 to-zinc-950 overflow-hidden'>
 			<Topbar />
 
-			<div className='grid lg:grid-cols-[300px_1fr] grid-cols-[80px_1fr] h-[calc(100vh-180px)]'>
+			<div className='grid grid-cols-1 sm:grid-cols-[minmax(0,280px)_1fr] h-[calc(100dvh-168px)] sm:h-[calc(100dvh-192px)]'>
 				<UsersList />
 
-				{/* chat message */}
-				<div className='flex flex-col h-full'>
+				<div className='flex flex-col h-full min-h-0 bg-zinc-950/50'>
 					{selectedUser ? (
 						<>
 							<ChatHeader />
 
-							{/* Messages */}
-							<ScrollArea className='h-[calc(100vh-340px)]'>
-								<div className='p-4 space-y-4'>
-									{messages.map((message) => (
-										<div
-											key={message._id}
-											className={`flex items-start gap-3 ${
-												message.senderId === user?.id ? "flex-row-reverse" : ""
-											}`}
-										>
-											<Avatar className='size-8'>
-												<AvatarImage
-													src={
-														message.senderId === user?.id
-															? user.imageUrl
-															: selectedUser.imageUrl
-													}
-												/>
-											</Avatar>
-
-											<div
-												className={`rounded-lg p-3 max-w-[70%]
-													${message.senderId === user?.id ? "bg-green-500" : "bg-zinc-800"}
-												`}
-											>
-												<p className='text-sm'>{message.content}</p>
-												<span className='text-xs text-zinc-300 mt-1 block'>
-													{formatTime(message.createdAt)}
-												</span>
-											</div>
+							<ScrollArea className='flex-1 min-h-0'>
+								<div className='p-4 sm:p-6 space-y-3 min-h-full'>
+									{isMessagesLoading ? (
+										<div className='flex items-center justify-center h-40 text-sm text-zinc-500'>
+											Loading messages...
 										</div>
-									))}
+									) : messages.length === 0 ? (
+										<div className='flex flex-col items-center justify-center h-40 text-center'>
+											<MessageCircle className='size-10 text-zinc-600 mb-3' />
+											<p className='text-zinc-400 text-sm'>No messages yet</p>
+											<p className='text-zinc-500 text-xs mt-1'>Say hello to {selectedUser.fullName}</p>
+										</div>
+									) : (
+										messages.map((message, index) => {
+											const isOwn = message.senderId === user?.id;
+											const prevMessage = messages[index - 1];
+											const showAvatar =
+												!prevMessage || prevMessage.senderId !== message.senderId;
+
+											return (
+												<div
+													key={message._id}
+													className={cn(
+														"flex items-end gap-2",
+														isOwn ? "flex-row-reverse" : "flex-row"
+													)}
+												>
+													{showAvatar ? (
+														<Avatar className='size-8 shrink-0 mb-1'>
+															<AvatarImage
+																src={
+																	isOwn ? user?.imageUrl : selectedUser.imageUrl
+																}
+															/>
+															<AvatarFallback>
+																{(isOwn ? user?.firstName : selectedUser.fullName)?.[0]}
+															</AvatarFallback>
+														</Avatar>
+													) : (
+														<div className='size-8 shrink-0' />
+													)}
+
+													<div
+														className={cn(
+															"max-w-[82%] sm:max-w-[68%] px-4 py-2.5 shadow-sm",
+															isOwn
+																? "bg-green-500 text-black rounded-2xl rounded-br-md"
+																: "bg-zinc-800 text-zinc-100 rounded-2xl rounded-bl-md",
+															message._id.startsWith("temp-") && "opacity-70"
+														)}
+													>
+														<p className='text-sm leading-relaxed break-words'>
+															{message.content}
+														</p>
+														<span
+															className={cn(
+																"text-[10px] mt-1 block tabular-nums",
+																isOwn ? "text-black/60" : "text-zinc-400"
+															)}
+														>
+															{formatTime(message.createdAt)}
+														</span>
+													</div>
+												</div>
+											);
+										})
+									)}
+									<div ref={messagesEndRef} />
 								</div>
 							</ScrollArea>
 
@@ -91,11 +131,18 @@ const ChatPage = () => {
 export default ChatPage;
 
 const NoConversationPlaceholder = () => (
-	<div className='flex flex-col items-center justify-center h-full space-y-6'>
-		<img src='/spotify.png' alt='Spotify' className='size-16 animate-bounce' />
-		<div className='text-center'>
-			<h3 className='text-zinc-300 text-lg font-medium mb-1'>No conversation selected</h3>
-			<p className='text-zinc-500 text-sm'>Choose a friend to start chatting</p>
+	<div className='flex flex-col items-center justify-center h-full space-y-5 p-6'>
+		<div className='relative'>
+			<div className='absolute -inset-2 bg-gradient-to-r from-green-500/30 to-emerald-400/20 rounded-full blur-xl' />
+			<div className='relative bg-zinc-900 border border-zinc-800 rounded-full p-5'>
+				<MessageCircle className='size-10 text-green-500' />
+			</div>
+		</div>
+		<div className='text-center max-w-sm'>
+			<h3 className='text-zinc-200 text-xl font-semibold mb-2'>Your Messages</h3>
+			<p className='text-zinc-500 text-sm leading-relaxed'>
+				Pick a friend from the list to chat and see what they&apos;re listening to in real time.
+			</p>
 		</div>
 	</div>
 );

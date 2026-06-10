@@ -77,3 +77,29 @@ export const getTrendingSongs = async(req , res , next) => {
         next()
     }
 }
+
+export const searchSongs = async(req , res , next) => {
+    try {
+        const { q } = req.query;
+        
+        if (!q || q.trim() === "") {
+            return res.json([]);
+        }
+
+        const searchQuery = {
+            $or: [
+                { title: { $regex: q, $options: "i" } },
+                { artist: { $regex: q, $options: "i" } }
+            ]
+        };
+
+        const songs = await Song.find(searchQuery)
+            .limit(20)
+            .sort({ createdAt: -1 })
+            .select("_id title artist imageUrl audioUrl duration createdAt updatedAt");
+
+        res.json(songs);
+    } catch (error) {
+        next(error);
+    }
+}

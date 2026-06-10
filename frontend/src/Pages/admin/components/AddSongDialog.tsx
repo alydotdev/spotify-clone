@@ -11,9 +11,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { axiosInstance } from "@/lib/axios";
+import { formatDuration, getAudioMetadata, guessTitleFromFilename } from "@/lib/audio";
 import { useMusicStore } from "@/stores/useMusicStore";
 import { useAuth } from "@clerk/clerk-react";
-import { Plus, Upload } from "lucide-react";
+import { Loader2, Plus, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -29,7 +30,7 @@ const AddSongDialog = () => {
 	const [songDialogOpen, setSongDialogOpen] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const { getToken, isSignedIn } = useAuth();
-	
+
 	const [newSong, setNewSong] = useState<NewSong>({
 		title: "",
 		artist: "",
@@ -44,12 +45,41 @@ const AddSongDialog = () => {
 
 	const audioInputRef = useRef<HTMLInputElement>(null);
 	const imageInputRef = useRef<HTMLInputElement>(null);
+	const [isReadingMetadata, setIsReadingMetadata] = useState(false);
+
+	const handleAudioSelect = async (file: File | null) => {
+		if (!file) {
+			setFiles((prev) => ({ ...prev, audio: null }));
+			setNewSong((prev) => ({ ...prev, duration: "0", title: "" }));
+			return;
+		}
+
+		setFiles((prev) => ({ ...prev, audio: file }));
+		setIsReadingMetadata(true);
+
+		try {
+			const { duration, title } = await getAudioMetadata(file);
+			setNewSong((prev) => ({
+				...prev,
+				duration: String(duration),
+				title,
+			}));
+		} catch {
+			toast.error("Could not read audio file");
+			setNewSong((prev) => ({
+				...prev,
+				duration: "0",
+				title: guessTitleFromFilename(file.name),
+			}));
+		} finally {
+			setIsReadingMetadata(false);
+		}
+	};
 
 	const handleSubmit = async () => {
 		setIsLoading(true);
 
 		try {
-			// Check if user is signed in
 			if (!isSignedIn) {
 				toast.error("Please sign in to add songs");
 				return;
@@ -60,19 +90,26 @@ const AddSongDialog = () => {
 				return;
 			}
 
-			// Get the token asynchronously
+			const title = newSong.title.trim() || guessTitleFromFilename(files.audio.name);
+			if (!title) {
+				toast.error("Could not detect a song title from the audio file");
+				return;
+			}
+
+			if (!newSong.artist.trim()) {
+				toast.error("Please enter an artist name");
+				return;
+			}
+
 			const token = await getToken();
-			
 			if (!token) {
 				toast.error("Authentication failed. Please sign in again.");
 				return;
 			}
 
 			const formData = new FormData();
-			console.log("Token:", token);
-
-			formData.append("title", newSong.title);
-			formData.append("artist", newSong.artist);
+			formData.append("title", title);
+			formData.append("artist", newSong.artist.trim());
 			formData.append("duration", newSong.duration);
 			if (newSong.album && newSong.album !== "none") {
 				formData.append("albumId", newSong.album);
@@ -84,22 +121,12 @@ const AddSongDialog = () => {
 			await axiosInstance.post("/admin/songs", formData, {
 				headers: {
 					"Content-Type": "multipart/form-data",
-					"Authorization": `Bearer ${token}`, 
+					Authorization: `Bearer ${token}`,
 				},
 			});
 
-			setNewSong({
-				title: "",
-				artist: "",
-				album: "",
-				duration: "0",
-			});
-
-			setFiles({
-				audio: null,
-				image: null,
-			});
-			
+			setNewSong({ title: "", artist: "", album: "", duration: "0" });
+			setFiles({ audio: null, image: null });
 			setSongDialogOpen(false);
 			toast.success("Song added successfully");
 		} catch (error: any) {
@@ -128,7 +155,7 @@ const AddSongDialog = () => {
 			<DialogContent className='bg-zinc-900 border-zinc-700 max-h-[80vh] overflow-auto'>
 				<DialogHeader>
 					<DialogTitle>Add New Song</DialogTitle>
-					<DialogDescription>Add a new song to your music library</DialogDescription>
+					<DialogDescription>Pick an audio file — title and duration are detected automatically</DialogDescription>
 				</DialogHeader>
 
 				<div className='space-y-4 py-4'>
@@ -137,35 +164,89 @@ const AddSongDialog = () => {
 						accept='audio/*'
 						ref={audioInputRef}
 						hidden
-						onChange={(e) => setFiles((prev) => ({ ...prev, audio: e.target.files![0] }))}
+						onChange={(e) => handleAudioSelect(e.target.files?.[0] || null)}
 					/>
-
 					<input
 						type='file'
 						ref={imageInputRef}
 						className='hidden'
 						accept='image/*'
-						onChange={(e) => setFiles((prev) => ({ ...prev, image: e.target.files![0] }))}
+						onChange={(e) => setFiles((prev) => ({ ...prev, image: e.target.files?.[0] || null }))}
 					/>
 
-					{/* image upload area */}
+					<div className='space-y-2'>
+						<label className='text-sm font-medium'>Audio File *</label>
+						<Button
+							variant='outline'
+							onClick={() => audioInputRef.current?.click()}
+							className='w-full justify-start truncate'
+						>
+							{files.audio ? files.audio.name : "Choose audio file"}
+						</Button>
+
+						{files.audio && (
+							<div className='rounded-md bg-zinc-800/80 border border-zinc-700 px-3 py-2 text-xs text-zinc-300'>
+								{isReadingMetadata ? (
+									<span className='flex items-center gap-2'>
+										<Loader2 className='size-3 animate-spin text-emerald-400' />
+										Reading file info...
+									</span>
+								) : (
+									<div className='space-y-1'>
+										<p>
+											<span className='text-zinc-500'>Title:</span> {newSong.title || "—"}
+										</p>
+										<p>
+											<span className='text-zinc-500'>Duration:</span>{" "}
+											{Number(newSong.duration) > 0
+												? formatDuration(Number(newSong.duration))
+												: "Could not detect"}
+										</p>
+									</div>
+								)}
+							</div>
+						)}
+					</div>
+
+					<div className='space-y-2'>
+						<label className='text-sm font-medium'>Title</label>
+						<Input
+							value={newSong.title}
+							onChange={(e) => setNewSong({ ...newSong, title: e.target.value })}
+							className='bg-zinc-800 border-zinc-700'
+							placeholder='Auto-detected from file name'
+							disabled={!files.audio || isReadingMetadata}
+						/>
+						<p className='text-xs text-zinc-500'>Filled automatically — edit only if you want a different name</p>
+					</div>
+
+					<div className='space-y-2'>
+						<label className='text-sm font-medium'>Artist *</label>
+						<Input
+							value={newSong.artist}
+							onChange={(e) => setNewSong({ ...newSong, artist: e.target.value })}
+							className='bg-zinc-800 border-zinc-700'
+							placeholder='Enter artist name'
+						/>
+					</div>
+
 					<div
-						className='flex items-center justify-center p-6 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer'
+						className='flex items-center justify-center p-6 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-zinc-600 transition-colors'
 						onClick={() => imageInputRef.current?.click()}
 					>
 						<div className='text-center'>
 							{files.image ? (
 								<div className='space-y-2'>
-									<div className='text-sm text-emerald-500'>Image selected:</div>
-									<div className='text-xs text-zinc-400'>{files.image.name.slice(0, 20)}</div>
+									<div className='text-sm text-emerald-500'>Cover art selected</div>
+									<div className='text-xs text-zinc-400'>{files.image.name}</div>
 								</div>
 							) : (
 								<>
 									<div className='p-3 bg-zinc-800 rounded-full inline-block mb-2'>
 										<Upload className='h-6 w-6 text-zinc-400' />
 									</div>
-									<div className='text-sm text-zinc-400 mb-2'>Upload artwork</div>
-									<Button variant='outline' size='sm' className='text-xs'>
+									<div className='text-sm text-zinc-400 mb-2'>Upload cover art *</div>
+									<Button variant='outline' size='sm' className='text-xs' type='button'>
 										Choose File
 									</Button>
 								</>
@@ -173,52 +254,9 @@ const AddSongDialog = () => {
 						</div>
 					</div>
 
-					{/* Audio upload */}
-					<div className='space-y-2'>
-						<label className='text-sm font-medium'>Audio File</label>
-						<div className='flex items-center gap-2'>
-							<Button variant='outline' onClick={() => audioInputRef.current?.click()} className='w-full'>
-								{files.audio ? files.audio.name.slice(0, 20) : "Choose Audio File"}
-							</Button>
-						</div>
-					</div>
-
-					{/* other fields */}
-					<div className='space-y-2'>
-						<label className='text-sm font-medium'>Title</label>
-						<Input
-							value={newSong.title}
-							onChange={(e) => setNewSong({ ...newSong, title: e.target.value })}
-							className='bg-zinc-800 border-zinc-700'
-						/>
-					</div>
-
-					<div className='space-y-2'>
-						<label className='text-sm font-medium'>Artist</label>
-						<Input
-							value={newSong.artist}
-							onChange={(e) => setNewSong({ ...newSong, artist: e.target.value })}
-							className='bg-zinc-800 border-zinc-700'
-						/>
-					</div>
-
-					<div className='space-y-2'>
-						<label className='text-sm font-medium'>Duration (seconds)</label>
-						<Input
-							type='number'
-							min='0'
-							value={newSong.duration}
-							onChange={(e) => setNewSong({ ...newSong, duration: e.target.value || "0" })}
-							className='bg-zinc-800 border-zinc-700'
-						/>
-					</div>
-
 					<div className='space-y-2'>
 						<label className='text-sm font-medium'>Album (Optional)</label>
-						<Select
-							value={newSong.album}
-							onValueChange={(value) => setNewSong({ ...newSong, album: value })}
-						>
+						<Select value={newSong.album} onValueChange={(value) => setNewSong({ ...newSong, album: value })}>
 							<SelectTrigger className='bg-zinc-800 border-zinc-700'>
 								<SelectValue placeholder='Select album' />
 							</SelectTrigger>
@@ -238,7 +276,10 @@ const AddSongDialog = () => {
 					<Button variant='outline' onClick={() => setSongDialogOpen(false)} disabled={isLoading}>
 						Cancel
 					</Button>
-					<Button onClick={handleSubmit} disabled={isLoading}>
+					<Button
+						onClick={handleSubmit}
+						disabled={isLoading || !files.audio || !files.image || isReadingMetadata}
+					>
 						{isLoading ? "Uploading..." : "Add Song"}
 					</Button>
 				</DialogFooter>

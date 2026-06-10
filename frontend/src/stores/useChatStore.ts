@@ -1,14 +1,16 @@
 import { axiosInstance } from "@/lib/axios";
 import type { Message, User } from "@/types";
 import { create } from "zustand";
-import { io } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 
 interface ChatStore {
 	users: User[];
 	isLoading: boolean;
+	isMessagesLoading: boolean;
 	error: string | null;
-	socket: any;
+	socket: Socket;
 	isConnected: boolean;
+	currentUserId: string | null;
 	onlineUsers: Set<string>;
 	userActivities: Map<string, string>;
 	messages: Message[];
@@ -20,116 +22,206 @@ interface ChatStore {
 	sendMessage: (receiverId: string, senderId: string, content: string) => void;
 	fetchMessages: (userId: string) => Promise<void>;
 	setSelectedUser: (user: User | null) => void;
+	emitActivity: (activity: string) => void;
 }
 
 const baseURL = import.meta.env.MODE === "development" ? "http://localhost:5000" : "/";
 
 const socket = io(baseURL, {
-	autoConnect: false, // only connect if user is authenticated
+	autoConnect: false,
 	withCredentials: true,
+	transports: ["websocket", "polling"],
+	reconnection: true,
+	reconnectionAttempts: 10,
+	reconnectionDelay: 500,
 });
 
-export const useChatStore = create<ChatStore>((set, get) => ({
-	users: [],
-	isLoading: false,
-	error: null,
-	socket: socket,
-	isConnected: false,
-	onlineUsers: new Set(),
-	userActivities: new Map(),
-	messages: [],
-	selectedUser: null,
+let listenersReady = false;
 
-	setSelectedUser: (user) => set({ selectedUser: user }),
+const belongsToConversation = (
+	message: Message,
+	selectedUser: User | null,
+	currentUserId: string | null
+) => {
+	if (!selectedUser || !currentUserId) return false;
 
-	fetchUsers: async () => {
-		set({ isLoading: true, error: null });
-		try {
-			const response = await axiosInstance.get("/users");
-			set({ users: response.data });
-		} catch (error: any) {
-			set({ error: error.response.data.message });
-		} finally {
-			set({ isLoading: false });
-		}
-	},
+	const partnerId = selectedUser.clerkId;
+	return (
+		(message.senderId === partnerId && message.receiverId === currentUserId) ||
+		(message.senderId === currentUserId && message.receiverId === partnerId)
+	);
+};
 
-	initSocket: (userId) => {
-		if (!get().isConnected) {
-			socket.auth = { userId };
-			socket.connect();
+const appendUniqueMessage = (messages: Message[], message: Message) => {
+	if (messages.some((existing) => existing._id === message._id)) {
+		return messages;
+	}
+	return [...messages, message];
+};
 
+const attachSocketListeners = (
+	set: (partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)) => void,
+	get: () => ChatStore
+) => {
+	if (listenersReady) return;
+	listenersReady = true;
+
+	socket.on("connect", () => {
+		const userId = get().currentUserId;
+		if (userId) {
 			socket.emit("user_connected", userId);
-
-			socket.on("users_online", (users: string[]) => {
-				set({ onlineUsers: new Set(users) });
-			});
-
-			socket.on("activities", (activities: [string, string][]) => {
-				set({ userActivities: new Map(activities) });
-			});
-
-			socket.on("user_connected", (userId: string) => {
-				set((state) => ({
-					onlineUsers: new Set([...state.onlineUsers, userId]),
-				}));
-			});
-
-			socket.on("user_disconnected", (userId: string) => {
-				set((state) => {
-					const newOnlineUsers = new Set(state.onlineUsers);
-					newOnlineUsers.delete(userId);
-					return { onlineUsers: newOnlineUsers };
-				});
-			});
-
-			socket.on("receive_message", (message: Message) => {
-				set((state) => ({
-					messages: [...state.messages, message],
-				}));
-			});
-
-			socket.on("message_sent", (message: Message) => {
-				set((state) => ({
-					messages: [...state.messages, message],
-				}));
-			});
-
-			socket.on("activity_updated", ({ userId, activity }) => {
-				set((state) => {
-					const newActivities = new Map(state.userActivities);
-					newActivities.set(userId, activity);
-					return { userActivities: newActivities };
-				});
-			});
-
-			set({ isConnected: true });
 		}
-	},
+	});
 
-	disconnectSocket: () => {
-		if (get().isConnected) {
-			socket.disconnect();
-			set({ isConnected: false });
-		}
-	},
+	socket.on("users_online", (users: string[]) => {
+		set({ onlineUsers: new Set(users) });
+	});
 
-	sendMessage: async (receiverId, senderId, content) => {
-		const socket = get().socket;
-		if (!socket) return;
+	socket.on("activities", (activities: [string, string][]) => {
+		set({ userActivities: new Map(activities) });
+	});
 
-		socket.emit("send_message", { receiverId, senderId, content });
-	},
+	socket.on("user_connected", (userId: string) => {
+		set((state) => ({
+			onlineUsers: new Set([...state.onlineUsers, userId]),
+		}));
+	});
 
-	fetchMessages: async (userId: string) => {
-		set({ isLoading: true, error: null });
-		try {
-			const response = await axiosInstance.get(`/users/messages/${userId}`);
-			set({ messages: response.data });
-		} catch (error: any) {
-			set({ error: error.response.data.message });
-		} finally {
-			set({ isLoading: false });
-		}
-	},
-}));
+	socket.on("user_disconnected", (userId: string) => {
+		set((state) => {
+			const newOnlineUsers = new Set(state.onlineUsers);
+			newOnlineUsers.delete(userId);
+
+			const newActivities = new Map(state.userActivities);
+			newActivities.delete(userId);
+
+			return { onlineUsers: newOnlineUsers, userActivities: newActivities };
+		});
+	});
+
+	socket.on("receive_message", (message: Message) => {
+		const { selectedUser, currentUserId, messages } = get();
+		if (!belongsToConversation(message, selectedUser, currentUserId)) return;
+
+		set({ messages: appendUniqueMessage(messages, message) });
+	});
+
+	socket.on("message_sent", (message: Message) => {
+		const { selectedUser, currentUserId, messages } = get();
+		if (!belongsToConversation(message, selectedUser, currentUserId)) return;
+
+		const withoutTemp = messages.filter((item) => !item._id.startsWith("temp-"));
+		set({ messages: appendUniqueMessage(withoutTemp, message) });
+	});
+
+	socket.on("activity_updated", ({ userId, activity }: { userId: string; activity: string }) => {
+		set((state) => {
+			const newActivities = new Map(state.userActivities);
+			newActivities.set(userId, activity);
+			return { userActivities: newActivities };
+		});
+	});
+};
+
+export const useChatStore = create<ChatStore>((set, get) => {
+	attachSocketListeners(set, get);
+
+	return {
+		users: [],
+		isLoading: false,
+		isMessagesLoading: false,
+		error: null,
+		socket,
+		isConnected: false,
+		currentUserId: null,
+		onlineUsers: new Set(),
+		userActivities: new Map(),
+		messages: [],
+		selectedUser: null,
+
+		setSelectedUser: (user) => set({ selectedUser: user }),
+
+		fetchUsers: async () => {
+			set({ isLoading: true, error: null });
+			try {
+				const response = await axiosInstance.get("/users");
+				set({ users: response.data });
+			} catch (error: any) {
+				set({ error: error.response?.data?.message || error.message });
+			} finally {
+				set({ isLoading: false });
+			}
+		},
+
+		initSocket: (userId) => {
+			set({ currentUserId: userId });
+
+			if (!get().isConnected) {
+				socket.auth = { userId };
+				socket.connect();
+				set({ isConnected: true });
+			} else {
+				socket.emit("user_connected", userId);
+			}
+		},
+
+		disconnectSocket: () => {
+			if (socket.connected) {
+				socket.disconnect();
+			}
+			set({
+				isConnected: false,
+				currentUserId: null,
+				onlineUsers: new Set(),
+				userActivities: new Map(),
+			});
+		},
+
+		emitActivity: (activity) => {
+			const userId = get().currentUserId;
+			if (!userId || !socket.connected) return;
+
+			socket.emit("update_activity", { userId, activity });
+
+			set((state) => {
+				const newActivities = new Map(state.userActivities);
+				newActivities.set(userId, activity);
+				return { userActivities: newActivities };
+			});
+		},
+
+		sendMessage: (receiverId, senderId, content) => {
+			if (!socket.connected) return;
+
+			const trimmed = content.trim();
+			if (!trimmed) return;
+
+			const optimisticMessage: Message = {
+				_id: `temp-${Date.now()}`,
+				senderId,
+				receiverId,
+				content: trimmed,
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			};
+
+			set((state) => ({
+				messages: [...state.messages, optimisticMessage],
+			}));
+
+			socket.emit("send_message", { receiverId, senderId, content: trimmed });
+		},
+
+		fetchMessages: async (userId: string) => {
+			set({ isMessagesLoading: true, error: null });
+			try {
+				const response = await axiosInstance.get(`/users/messages/${userId}`);
+				set({ messages: response.data });
+			} catch (error: any) {
+				set({ error: error.response?.data?.message || error.message });
+			} finally {
+				set({ isMessagesLoading: false });
+			}
+		},
+	};
+});

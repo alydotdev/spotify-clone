@@ -1,12 +1,14 @@
 
 import { useMusicStore } from "@/stores/useMusicStore";
+import { usePlayerStore } from "@/stores/usePlayerStore";
 import FeaturedGridSkeleton from "@/components/skeletons/FeaturedGridSkeleton";
 import PlayButton from "./PlayButton";
 
 const FeaturedSection = () => {
-	const { isLoading, featuredSongs, error } = useMusicStore();
+	const { isHomeLoading, featuredSongs, error } = useMusicStore();
+	const setCurrentSong = usePlayerStore((state) => state.setCurrentSong);
 
-	if (isLoading) return <FeaturedGridSkeleton />;
+	if (isHomeLoading) return <FeaturedGridSkeleton />;
 
 	if (error) return <p className='text-red-500 mb-4 text-lg'>{error}</p>;
 
@@ -15,6 +17,7 @@ const FeaturedSection = () => {
 			{featuredSongs.map((song) => (
 				<div
 					key={song._id}
+					onClick={() => setCurrentSong(song)}
 					className='flex items-center bg-zinc-800/50 rounded-md overflow-hidden
          hover:bg-zinc-700/50 transition-colors group cursor-pointer relative'
 				>

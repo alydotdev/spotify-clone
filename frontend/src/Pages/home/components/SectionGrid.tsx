@@ -2,7 +2,7 @@ import type { Song } from "../../../types/index";
 import PlayButton from "./PlayButton";
 import SectionGridSkeleton from "./SectionGridSkeleton";
 import { Button } from "@/components/ui/button";
-//import PlayButton from "./PlayButton";
+import { usePlayerStore } from "@/stores/usePlayerStore";
 
 type SectionGridProps = {
 	title: string;
@@ -10,6 +10,8 @@ type SectionGridProps = {
 	isLoading: boolean;
 };
 const SectionGrid = ({ songs, title, isLoading }: SectionGridProps) => {
+	const setCurrentSong = usePlayerStore((state) => state.setCurrentSong);
+
 	if (isLoading) return <SectionGridSkeleton />;
 
 	return (
@@ -25,6 +27,7 @@ const SectionGrid = ({ songs, title, isLoading }: SectionGridProps) => {
 				{songs.map((song) => (
 					<div
 						key={song._id}
+						onClick={() => setCurrentSong(song)}
 						className='bg-zinc-800/40 p-4 rounded-md hover:bg-zinc-700/40 transition-all group cursor-pointer'
 					>
 						<div className='relative mb-4'>

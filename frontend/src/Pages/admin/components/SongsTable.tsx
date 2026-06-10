@@ -4,9 +4,9 @@ import { useMusicStore } from "@/stores/useMusicStore";
 import { Calendar, Trash2 } from "lucide-react";
 
 const SongsTable = () => {
-	const { songs, isLoading, error, deleteSong } = useMusicStore();
+	const { songs, isSongsLoading, error, deleteSong } = useMusicStore();
 
-	if (isLoading) {
+	if (isSongsLoading) {
 		return (
 			<div className='flex items-center justify-center py-8'>
 				<div className='text-zinc-400'>Loading songs...</div>

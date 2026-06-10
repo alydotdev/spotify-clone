@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { usePlayerStore } from "@/stores/usePlayerStore";
 import type { Song } from "@/types";
@@ -8,19 +7,19 @@ const PlayButton = ({ song }: { song: Song }) => {
 	const { currentSong, isPlaying, setCurrentSong, togglePlay } = usePlayerStore();
 	const isCurrentSong = currentSong?._id === song._id;
 
-	const handlePlay = () => {
+	const handlePlay = (e: React.MouseEvent) => {
+		e.stopPropagation();
 		if (isCurrentSong) togglePlay();
 		else setCurrentSong(song);
 	};
 
 	return (
 		<Button
-			size={"icon"}
+			size='icon'
 			onClick={handlePlay}
-			className={`absolute bottom-3 right-2 bg-green-500 hover:bg-green-400 hover:scale-105 transition-all 
-				opacity-0 translate-y-2 group-hover:translate-y-0 ${
-					isCurrentSong ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-				}`}
+			className={`absolute bottom-3 right-2 bg-green-500 hover:bg-green-400 hover:scale-105 transition-all shadow-lg
+				opacity-100 sm:opacity-0 sm:translate-y-2 sm:group-hover:translate-y-0 sm:group-hover:opacity-100
+				${isCurrentSong ? "sm:opacity-100 sm:translate-y-0" : ""}`}
 		>
 			{isCurrentSong && isPlaying ? (
 				<Pause className='size-5 text-black' />
